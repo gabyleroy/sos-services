@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOS SERVICES — Entretien à domicile</title>
+  <meta name="description" content="SOS SERVICES — Immobilier, Dépannage & Entretien à domicile. Professionnels certifiés, disponibles 24h/24.">
+  <meta name="author" content="SOS SERVICES">
+  <meta property="og:site_name" content="SOS SERVICES">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="SOS SERVICES — Entretien à domicile">
+  <meta property="og:image" content="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+  <script>if(typeof L==='undefined'){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';document.head.appendChild(s);}</script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <link rel="stylesheet" href="css/shared.css">
+  
+</head>
+<body>
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-logo">SOS<span> SERVICES</span></div>
+  <div class="nav-links">
+    <a href="#" onclick="showModule('home');return false;" id="navHome">🏠 Accueil</a>
+    <a href="#" onclick="showModule('immo');return false;" id="navImmo" style="color:#5dade2;" class="active">🏢 Immobilier</a>
+    <a href="#" onclick="showModule('dep');return false;"  id="navDep"  style="color:#e74c3c;">🔧 Dépannage</a>
+    <a href="#" onclick="showModule('entretien');return false;" id="navEntretien" style="color:#27ae60;">🌿 Entretien</a>
+    <a href="#" onclick="requireAuth(openMsg);return false;">💬 Messagerie</a>
+    <a href="#" onclick="requireAuth(openDash);return false;">📊 Dashboard</a>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;" id="navRight">
+    <button class="urgence-btn" onclick="openDepannage()">🚨 Urgence</button>
+    <button class="nav-btn" id="navLoginBtn" onclick="openAuth()" data-i18n="nav_login">Se connecter</button>
+  </div>
+  <div class="lang-switcher" id="langSwitcher">
+    <button class="lang-btn active" onclick="setLang('fr',this)">FR</button>
+    <button class="lang-btn" onclick="setLang('en',this)">EN</button>
+    <button class="lang-btn" onclick="setLang('ar',this)">AR</button>
+  </div>
+  <button class="dark-toggle" id="darkToggle" onclick="toggleDark()" title="Mode sombre">🌙</button>
+  <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE NAV MENU -->
+<div class="mobile-nav-menu" id="mobileNavMenu">
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();showModule('home');return false;">🏠 Accueil SOS SERVICES</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();showModule('immo');return false;" style="color:#5dade2;font-weight:700;">🏢 Immobilier</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();showModule('dep');return false;" style="color:#e74c3c;font-weight:700;">🔧 Dépannage d'urgence</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();showModule('entretien');return false;" style="color:#27ae60;font-weight:700;">🌿 Entretien à domicile</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();openEstim();return false;">💰 Estimer un bien</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();requireAuth(openMsg);return false;">💬 Messagerie</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();requireAuth(openDash);return false;">📊 Dashboard</a>
+  <a class="mobile-nav-link" href="#" onclick="closeMobileMenu();openArtisanReg();return false;" style="color:#e67e22;font-weight:700;">👷 Devenir partenaire</a>
+  <div style="margin-top:8px;">
+    <button class="nav-btn" style="width:100%;justify-content:center;" onclick="closeMobileMenu();openAuth()">Se connecter / S'inscrire</button>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+  [data-theme="dark"] .dispo-day.active { background:#2a1e00; border-color:#f39c12; }
+  [data-theme="dark"] .artisan-kpi { background:#1a2535; border-color:#1e2d42; }
+  [data-theme="dark"] .artisan-request-card { background:#1a2535; border-color:#1e2d42; }
+  [data-theme="dark"] .artisan-profil-card { background:#1a2535; border-color:#1e2d42; }
+  [data-theme="dark"] .doc-upload-zone { background:#121a26; border-color:#1e2d42; }
+  [data-theme="dark"] .admin-artisan-row { border-color:#1e2d42; }
+
+  @media (max-width:600px) {
+    .artisan-grid { grid-template-columns:1fr; }
+    .spec-grid { grid-template-columns:repeat(4,1fr); }
+    .artisan-kpi-row { grid-template-columns:1fr 1fr; }
+    .artisan-body { padding:16px; }
+  }
+</style>
+</head>
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-header">
+      <div class="auth-header-logo">SOS<span> SERVICES</span></div>
+      <p>Accédez à votre espace personnel</p>
+      <button class="auth-close" onclick="closeAuth()">✕</button>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Connexion</button>
+      <button class="auth-tab" onclick="switchAuthTab('register',this)">Créer un compte</button>
+    </div>
+    <div class="auth-body">
+      <div class="auth-panel active" id="panelLogin">
+        <div class="auth-field">
+          <label>Adresse e-mail</label>
+          <input type="email" id="loginEmail" placeholder="vous@exemple.fr" autocomplete="email">
+          <div class="field-error" id="loginEmailErr">Email invalide</div>
+        </div>
+        <div class="auth-field">
+          <label>Mot de passe</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+          <div class="field-error" id="loginPassErr">Email ou mot de passe incorrect</div>
+        </div>
+        <div style="text-align:right;margin-bottom:16px;">
+          <a href="#" style="font-size:0.82rem;color:var(--gold);text-decoration:none;" onclick="showToast('📧 Lien de réinitialisation envoyé !')">Mot de passe oublié ?</a>
+        </div>
+        <button class="auth-submit" onclick="doLogin()">Se connecter</button>
+        <div class="auth-divider">ou continuer avec</div>
+        <button class="google-btn" onclick="doGoogleLogin()">
+          <span class="google-icon"></span>Continuer avec Google
+        </button>
+      </div>
+      <div class="auth-panel" id="panelRegister">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="auth-field">
+            <label>Prénom</label>
+            <input type="text" id="regFirstName" placeholder="Jean" autocomplete="given-name">
+          </div>
+          <div class="auth-field">
+            <label>Nom</label>
+            <input type="text" id="regLastName" placeholder="Dupont" autocomplete="family-name">
+          </div>
+        </div>
+        <div class="auth-field">
+          <label>Adresse e-mail</label>
+          <input type="email" id="regEmail" placeholder="vous@exemple.fr" autocomplete="email">
+          <div class="field-error" id="regEmailErr">Email déjà utilisé ou invalide</div>
+        </div>
+        <div class="auth-field">
+          <label>Mot de passe</label>
+          <input type="password" id="regPassword" autocomplete="new-password" placeholder="8 caractères minimum">
+          <div class="field-error" id="regPassErr">Au moins 8 caractères requis</div>
+        </div>
+        <div class="auth-field">
+          <label>Confirmer le mot de passe</label>
+          <input type="password" id="regConfirm" autocomplete="new-password" placeholder="••••••••">
+          <div class="field-error" id="regConfirmErr">Les mots de passe ne correspondent pas</div>
+        </div>
+        <button class="auth-submit" onclick="doRegister()">Créer mon compte</button>
+        <div class="auth-divider">ou continuer avec</div>
+        <button class="google-btn" onclick="doGoogleLogin()">
+          <span class="google-icon"></span>S'inscrire avec Google
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PROPERTY MODAL -->
+<div class="add-prop-overlay" id="addPropOverlay">
+  <div class="add-prop-modal">
+    <div class="add-prop-header">
+      <h2>Déposer une <span>annonce</span></h2>
+      <button class="auth-close" onclick="closeAddProp()" style="position:static;">✕</button>
+    </div>
+    <div class="add-prop-body">
+      <div class="form-grid">
+        <div class="form-section-title">📋 Informations générales</div>
+        <div class="form-field full">
+          <label>Titre de l'annonce *</label>
+          <input type="text" id="propTitle" placeholder="Ex: Appartement lumineux 3 pièces avec balcon">
+        </div>
+        <div class="form-field">
+          <label>Type de bien *</label>
+          <select id="propType">
+            <option value="">Sélectionner...</option>
+            <option>Appartement</option><option>Maison</option>
+            <option>Villa</option><option>Studio</option><option>Local commercial</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Transaction *</label>
+          <select id="propTransaction">
+            <option value="">Sélectionner...</option>
+            <option value="vente">Vente</option><option value="location">Location</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Prix (€) *</label>
+          <input type="number" id="propPrice" placeholder="350000">
+        </div>
+        <div class="form-field">
+          <label>Ville *</label>
+          <input type="text" id="propCity" placeholder="Paris, Lyon..." oninput="previewCityMap()">
+          <div class="geocode-preview" id="geocodePreview">
+            <iframe id="geocodeIframe" src="" loading="lazy" style="width:100%;height:180px;border:none;display:block;"></iframe>
+          </div>
+        </div>
+        <div class="form-section-title">📐 Caractéristiques</div>
+        <div class="form-field">
+          <label>Surface (m²) *</label>
+          <input type="number" id="propSurface" placeholder="75">
+        </div>
+        <div class="form-field">
+          <label>Nombre de pièces *</label>
+          <input type="number" id="propRooms" placeholder="3" min="1">
+        </div>
+        <div class="form-field">
+          <label>Salle(s) de bain</label>
+          <input type="number" id="propBathrooms" placeholder="1" min="1">
+        </div>
+        <div class="form-field">
+          <label>Étage</label>
+          <input type="text" id="propFloor" placeholder="2e/6">
+        </div>
+        <div class="form-field">
+          <label>DPE</label>
+          <select id="propDpe">
+            <option>A</option><option>B</option><option selected>C</option>
+            <option>D</option><option>E</option><option>F</option><option>G</option>
+          </select>
+        </div>
+        <div class="form-section-title">✨ Équipements</div>
+        <div class="checkbox-row">
+          <label class="check-pill"><input type="checkbox" id="pParking"> 🚗 Parking</label>
+          <label class="check-pill"><input type="checkbox" id="pTerrace"> 🌅 Terrasse</label>
+          <label class="check-pill"><input type="checkbox" id="pGarden"> 🌿 Jardin</label>
+          <label class="check-pill"><input type="checkbox" id="pPool"> 🏊 Piscine</label>
+          <label class="check-pill"><input type="checkbox" id="pElevator"> 🛗 Ascenseur</label>
+        </div>
+        <div class="form-section-title">📝 Description</div>
+        <div class="form-field full">
+          <label>Description *</label>
+          <textarea id="propDesc" placeholder="Décrivez votre bien en détail..."></textarea>
+        </div>
+        <div class="form-field full">
+          <label>Photos du bien</label>
+          <div class="photo-upload-zone" id="photoUploadZone"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handlePhotoDrop(event)">
+            <input type="file" id="photoInput" accept="image/*" multiple onchange="handlePhotoSelect(event)">
+            <div class="photo-upload-icon">📸</div>
+            <div class="photo-upload-label"><strong>Cliquez ou glissez</strong> vos photos ici<br><span style="font-size:0.78rem;">JPG, PNG, WEBP — max 5 Mo par photo</span></div>
+          </div>
+          <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
+          <div class="photo-previews" id="photoPreviews"></div>
+          <input type="hidden" id="propImg" value="">
+          <p style="font-size:0.75rem;color:var(--text-light);margin-top:6px;">⭐ La première photo sera l'image principale de l'annonce</p>
+        </div>
+        <div class="form-submit-row">
+          <button class="form-cancel" onclick="closeAddProp()">Annuler</button>
+          <button class="form-submit" id="formSubmitBtn" onclick="submitProperty()">✅ Publier l'annonce</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MY LISTINGS MODAL -->
+<div class="my-listings-overlay" id="myListingsOverlay">
+  <div class="my-listings-modal">
+    <div class="add-prop-header">
+      <h2>Mes <span>annonces</span></h2>
+      <button class="auth-close" onclick="closeMyListings()" style="position:static;">✕</button>
+    </div>
+    <div id="myListingsContent" style="padding-bottom:8px;"></div>
+  </div>
+</div>
+
+<!-- PAGE ACCUEIL SOS SERVICES -->
+
+<div class="toast" id="toast"></div>
+
+<!-- Barre retour accueil -->
+<div style="background:linear-gradient(90deg,#0a2018,#051a10);padding:10px 20px;display:flex;align-items:center;gap:16px;">
+  <a href="index.html" style="color:rgba(255,255,255,.6);text-decoration:none;font-size:.82rem;">← Accueil SOS SERVICES</a>
+  <a href="immobilier.html" style="color:#5dade2;text-decoration:none;font-size:.8rem;font-weight:600;">🏢 Immobilier</a>
+  <a href="depannage.html"  style="color:#e74c3c;text-decoration:none;font-size:.8rem;font-weight:600;">🔧 Dépannage</a>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     🌿 MODULE ENTRETIEN
+══════════════════════════════════════════ -->
+<div id="moduleEntretien" style="display:none;">
+
+  <!-- HERO ENTRETIEN -->
+  <section style="background:linear-gradient(135deg,#145a32 0%,#1e8449 50%,#27ae60 100%);padding:60px 20px 48px;position:relative;overflow:hidden;">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 80% 20%,rgba(46,204,113,0.2),transparent 60%);pointer-events:none;"></div>
+    <div style="max-width:1100px;margin:0 auto;position:relative;z-index:1;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <button onclick="showModule('home')" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:6px 14px;border-radius:20px;font-size:0.78rem;cursor:pointer;font-family:'DM Sans',sans-serif;">← Accueil</button>
+        <span style="color:rgba(255,255,255,0.5);font-size:0.78rem;">/ Entretien</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;">
+        <div>
+          <h1 style="font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;color:#fff;margin-bottom:10px;">🌿 Entretien <span style="color:#a9dfbf;">à domicile</span></h1>
+          <p style="color:rgba(255,255,255,0.75);font-size:1rem;max-width:480px;line-height:1.6;">Ménage, jardinage, garde d'enfants, aide aux seniors — des prestataires de confiance, vérifiés et notés par notre communauté.</p>
+        </div>
+        <button onclick="openEntretienBooking()" style="background:#fff;color:#27ae60;border:none;padding:14px 28px;border-radius:10px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;transition:all 0.3s;flex-shrink:0;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+          📅 Réserver maintenant
+        </button>
+      </div>
+
+      <!-- Catégories entretien -->
+      <div id="entretienCatBar" style="display:flex;gap:10px;margin-top:28px;flex-wrap:wrap;">
+        <button class="ent-cat-btn active" onclick="selectEntretienCat(this,'all')"    data-cat="all">Tous les services</button>
+        <button class="ent-cat-btn"        onclick="selectEntretienCat(this,'menage')" data-cat="menage">🧹 Ménage</button>
+        <button class="ent-cat-btn"        onclick="selectEntretienCat(this,'jardinage')" data-cat="jardinage">🌿 Jardinage</button>
+        <button class="ent-cat-btn"        onclick="selectEntretienCat(this,'enfants')" data-cat="enfants">👶 Garde enfants</button>
+        <button class="ent-cat-btn"        onclick="selectEntretienCat(this,'seniors')" data-cat="seniors">👨‍🦳 Aide seniors</button>
+        <button class="ent-cat-btn"        onclick="selectEntretienCat(this,'animaux')" data-cat="animaux">🐶 Animaux</button>
+        <button class="ent-cat-btn"        onclick="selectEntretienCat(this,'cours')"  data-cat="cours">💻 Cours particuliers</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS ENTRETIEN -->
+  <div style="background:var(--white);border-bottom:1px solid var(--cream-dark);padding:16px 20px;">
+    <div style="max-width:1100px;margin:0 auto;display:flex;gap:32px;align-items:center;flex-wrap:wrap;">
+      <div style="font-size:0.82rem;color:var(--text-light);">🔍 <strong id="entretienCount">18</strong> prestataires disponibles</div>
+      <div style="font-size:0.82rem;color:var(--text-light);">⭐ Note moyenne : <strong>4.8/5</strong></div>
+      <div style="font-size:0.82rem;color:var(--text-light);">✅ <strong>100%</strong> vérifiés & assurés</div>
+      <div style="margin-left:auto;">
+        <select id="entretienSort" onchange="renderEntretienCards()" style="border:1.5px solid var(--cream-dark);border-radius:8px;padding:7px 12px;font-family:'DM Sans',sans-serif;font-size:0.82rem;background:var(--white);cursor:pointer;">
+          <option value="note">Trier : Mieux notés</option>
+          <option value="prix">Trier : Prix croissant</option>
+          <option value="distance">Trier : Plus proche</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRILLE PRESTATAIRES -->
+  <div style="max-width:1100px;margin:0 auto;padding:28px 20px;">
+    <div id="entretienGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;"></div>
+    <div id="entretienEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-light);">
+      <div style="font-size:2.5rem;margin-bottom:12px;">🔍</div>
+      <div style="font-size:0.9rem;">Aucun prestataire pour cette catégorie pour le moment.</div>
+    </div>
+  </div>
+
+</div><!-- /moduleEntretien -->
+
+<!-- MODAL RÉSERVATION ENTRETIEN -->
+<div class="artisan-overlay" id="entretienBookingOverlay" onclick="if(event.target===this)closeEntretienBooking()">
+  <div class="artisan-panel" id="entretienBookingPanel">
+    <div style="background:linear-gradient(135deg,#145a32,#27ae60);padding:22px 28px;flex-shrink:0;position:sticky;top:0;z-index:10;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-family:'Playfair Display',serif;font-size:1.25rem;color:#fff;" id="entBookingTitle">📅 Réserver un prestataire</div>
+        <button class="auth-close" onclick="closeEntretienBooking()" style="position:static;background:rgba(255,255,255,.2);">✕</button>
+      </div>
+      <div style="color:rgba(255,255,255,.75);font-size:0.82rem;" id="entBookingSub">Choisissez votre créneau et confirmez</div>
+    </div>
+    <div style="padding:28px;" id="entBookingBody">
+
+      <div style="background:var(--cream);border:1px solid var(--cream-dark);border-radius:var(--radius);padding:22px;margin-bottom:20px;">
+        <div style="font-family:'Playfair Display',serif;font-weight:700;color:var(--navy);margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #27ae60;">📋 Détails de la prestation</div>
+        <div class="artisan-grid">
+          <div class="artisan-field">
+            <label>Type de service *</label>
+            <select id="entServiceType">
+              <option value="">Sélectionner...</option>
+              <option value="menage">🧹 Ménage & nettoyage</option>
+              <option value="jardinage">🌿 Jardinage</option>
+              <option value="enfants">👶 Garde d'enfants</option>
+              <option value="seniors">👨‍🦳 Aide à la personne</option>
+              <option value="animaux">🐶 Garde d'animaux</option>
+              <option value="cours">💻 Cours particuliers</option>
+            </select>
+          </div>
+          <div class="artisan-field">
+            <label>Fréquence *</label>
+            <select id="entFrequence">
+              <option value="ponctuel">Ponctuel (1 fois)</option>
+              <option value="hebdo">Hebdomadaire</option>
+              <option value="bimensuel">2 fois/semaine</option>
+              <option value="mensuel">Mensuel</option>
+            </select>
+          </div>
+          <div class="artisan-field">
+            <label>Date souhaitée *</label>
+            <input type="date" id="entDate">
+          </div>
+          <div class="artisan-field">
+            <label>Créneau horaire *</label>
+            <select id="entCreneau">
+              <option value="matin">Matin (8h–12h)</option>
+              <option value="aprem">Après-midi (13h–17h)</option>
+              <option value="soir">Soir (17h–20h)</option>
+            </select>
+          </div>
+          <div class="artisan-field">
+            <label>Durée estimée</label>
+            <select id="entDuree">
+              <option value="1h">1 heure</option>
+              <option value="2h">2 heures</option>
+              <option value="3h">3 heures</option>
+              <option value="demi-journée">Demi-journée</option>
+              <option value="journée">Journée complète</option>
+            </select>
+          </div>
+          <div class="artisan-field">
+            <label>Adresse d'intervention *</label>
+            <input type="text" id="entAddress" placeholder="12 rue de la Paix, Paris" autocomplete="street-address">
+          </div>
+        </div>
+        <div class="artisan-field" style="margin-top:12px;">
+          <label>Informations complémentaires</label>
+          <textarea id="entDetails" rows="2" style="resize:none;" placeholder="Surface, animaux présents, instructions particulières..."></textarea>
+        </div>
+      </div>
+
+      <!-- Estimation tarif -->
+      <div id="entTarifBox" style="background:linear-gradient(135deg,#145a32,#1e8449);border-radius:12px;padding:18px 22px;margin-bottom:20px;display:none;">
+        <div style="color:rgba(255,255,255,.65);font-size:.75rem;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Estimation tarifaire</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#a9dfbf;" id="entEstMin">—</div>
+            <div style="font-size:.72rem;color:rgba(255,255,255,.55);margin-top:2px;">Tarif min.</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#fff;" id="entEstMax">—</div>
+            <div style="font-size:.72rem;color:rgba(255,255,255,.55);margin-top:2px;">Tarif max.</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#f9e79f;" id="entEstDuree">—</div>
+            <div style="font-size:.72rem;color:rgba(255,255,255,.55);margin-top:2px;">Durée</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coordonnées -->
+      <div style="background:var(--cream);border:1px solid var(--cream-dark);border-radius:var(--radius);padding:22px;margin-bottom:20px;">
+        <div style="font-family:'Playfair Display',serif;font-weight:700;color:var(--navy);margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #27ae60;">👤 Vos coordonnées</div>
+        <div class="artisan-grid">
+          <div class="artisan-field"><label>Prénom *</label><input type="text" id="entClientName" placeholder="Jean" autocomplete="given-name"></div>
+          <div class="artisan-field"><label>Téléphone *</label><input type="tel" id="entClientPhone" placeholder="+33 6 12 34 56 78" autocomplete="tel"></div>
+          <div class="artisan-field" style="grid-column:1/-1"><label>Email *</label><input type="email" id="entClientEmail" placeholder="vous@exemple.fr" autocomplete="email"></div>
+        </div>
+      </div>
+
+      <button onclick="submitEntretienBooking()" style="width:100%;background:linear-gradient(135deg,#145a32,#27ae60);color:#fff;border:none;padding:14px;border-radius:10px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .3s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+        ✅ Confirmer la réservation
+      </button>
+    </div>
+  </div>
+</div> — INSCRIPTION (4 étapes)
+     👷 DASHBOARD ARTISAN
+     🔑 PANEL ADMIN
+     🌐 PROFIL PUBLIC ARTISAN
+══════════════════════════════════════════ -->
+
+<!-- INSCRIPTION ARTISAN -->
+<!-- INSCRIPTION ARTISAN -->
+<!-- ══════════════════════════════════════════
+     🔧 DÉPANNAGE D'URGENCE — PANEL
+══════════════════════════════════════════ -->
+<div class="dep-overlay" id="depOverlay" onclick="if(event.target===this)closeDepannage()">
+  <div class="dep-panel" id="depPanel">
+
+    <!-- HEADER -->
+    <div class="dep-header">
+      <div class="dep-header-top">
+        <div>
+          <div class="dep-header-title">🔧 Dépannage <span style="color:rgba(255,255,255,0.7);font-size:1rem;">d'urgence</span></div>
+          <div class="dep-header-subtitle">Techniciens disponibles 24h/24 — 7j/7</div>
+        </div>
+        <button class="auth-close" onclick="closeDepannage()" style="position:static;background:rgba(255,255,255,0.2);">✕</button>
+      </div>
+      <!-- Catégories -->
+      <div class="dep-categories" id="depCategories">
+        <div class="dep-cat active" data-cat="plomberie" onclick="selectDepCat(this,'plomberie')">
+          <div class="dep-cat-icon">🚿</div><div class="dep-cat-label">Plomberie</div>
+        </div>
+        <div class="dep-cat" data-cat="electricite" onclick="selectDepCat(this,'electricite')">
+          <div class="dep-cat-icon">⚡</div><div class="dep-cat-label">Électricité</div>
+        </div>
+        <div class="dep-cat" data-cat="serrurerie" onclick="selectDepCat(this,'serrurerie')">
+          <div class="dep-cat-icon">🔑</div><div class="dep-cat-label">Serrurerie</div>
+        </div>
+        <div class="dep-cat" data-cat="chauffage" onclick="selectDepCat(this,'chauffage')">
+          <div class="dep-cat-icon">🔥</div><div class="dep-cat-label">Chauffage</div>
+        </div>
+        <div class="dep-cat" data-cat="toiture" onclick="selectDepCat(this,'toiture')">
+          <div class="dep-cat-icon">🏠</div><div class="dep-cat-label">Toiture</div>
+        </div>
+        <div class="dep-cat" data-cat="vitrerie" onclick="selectDepCat(this,'vitrerie')">
+          <div class="dep-cat-icon">🪟</div><div class="dep-cat-label">Vitrerie</div>
+        </div>
+        <div class="dep-cat" data-cat="climatisation" onclick="selectDepCat(this,'climatisation')">
+          <div class="dep-cat-icon">❄️</div><div class="dep-cat-label">Climatisation</div>
+        </div>
+        <div class="dep-cat" data-cat="autre" onclick="selectDepCat(this,'autre')">
+          <div class="dep-cat-icon">🔧</div><div class="dep-cat-label">Autre</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="dep-body" id="depBody">
+
+      <!-- Étape 1 : Formulaire demande -->
+      <div id="depStep1">
+
+        <!-- Barre statut -->
+        <div class="dep-urgence-bar">
+          <div class="dep-urgence-pulse"></div>
+          <div>
+            <div style="font-weight:700;font-size:0.92rem;">🟢 <span id="depAvailCount">8 techniciens</span> disponibles près de vous</div>
+            <div style="font-size:0.75rem;opacity:0.8;margin-top:2px;">Géolocalisation active — Intervention possible en <span id="depMinEta">15 min</span></div>
+          </div>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="dep-form-card">
+          <div class="dep-section-title">📋 Décrivez votre problème</div>
+          <div class="dep-form-grid">
+            <div class="dep-field">
+              <label>Type de problème *</label>
+              <select id="depProblemType" onchange="updateDepEstimate()">
+                <option value="">Sélectionner...</option>
+                <optgroup label="🚿 Plomberie">
+                  <option value="fuite_eau">Fuite d'eau</option>
+                  <option value="canalisation_bouchee">Canalisation bouchée</option>
+                  <option value="wc_bouche">WC bouché</option>
+                  <option value="chauffe_eau">Chauffe-eau en panne</option>
+                </optgroup>
+                <optgroup label="⚡ Électricité">
+                  <option value="panne_generale">Panne générale</option>
+                  <option value="disjoncteur">Disjoncteur qui saute</option>
+                  <option value="prise_defectueuse">Prise défectueuse</option>
+                  <option value="eclairage">Problème éclairage</option>
+                </optgroup>
+                <optgroup label="🔑 Serrurerie">
+                  <option value="porte_claquee">Porte claquée</option>
+                  <option value="serrure_bloquee">Serrure bloquée</option>
+                  <option value="changement_serrure">Changement serrure</option>
+                </optgroup>
+                <optgroup label="🔥 Chauffage">
+                  <option value="chaudiere_panne">Chaudière en panne</option>
+                  <option value="radiateur_froid">Radiateur froid</option>
+                  <option value="fuite_gaz">Fuite de gaz ⚠️</option>
+                </optgroup>
+                <optgroup label="Autres">
+                  <option value="vitre_cassee">Vitre cassée</option>
+                  <option value="toiture_fuite">Fuite toiture</option>
+                  <option value="autre">Autre problème</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="dep-field">
+              <label>Votre adresse *</label>
+              <input type="text" id="depAddress" placeholder="Ex: 12 rue de Rivoli, Paris" oninput="updateDepEstimate()" autocomplete="street-address">
+            </div>
+          </div>
+          <div class="dep-field" style="margin-bottom:14px;">
+            <label>Description détaillée</label>
+            <textarea id="depDesc" rows="2" placeholder="Décrivez le problème en quelques mots..." style="resize:none;"></textarea>
+          </div>
+
+          <!-- Niveau urgence -->
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.76rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;">Niveau d'urgence</label>
+            <div class="urgence-levels">
+              <div class="urgence-level sel-low" onclick="selectUrgenceLevel(this,'low')">
+                <div class="urgence-level-icon">🟢</div>
+                <div class="urgence-level-label">Faible</div>
+                <div class="urgence-level-time">Dans 48h</div>
+              </div>
+              <div class="urgence-level sel-med active" onclick="selectUrgenceLevel(this,'med')">
+                <div class="urgence-level-icon">🟡</div>
+                <div class="urgence-level-label">Modéré</div>
+                <div class="urgence-level-time">Aujourd'hui</div>
+              </div>
+              <div class="urgence-level sel-high" onclick="selectUrgenceLevel(this,'high')">
+                <div class="urgence-level-icon">🔴</div>
+                <div class="urgence-level-label">Urgent</div>
+                <div class="urgence-level-time">Dans 30 min</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coordonnées -->
+          <div class="dep-form-grid">
+            <div class="dep-field">
+              <label>Votre prénom *</label>
+              <input type="text" id="depClientName" placeholder="Jean" autocomplete="given-name">
+            </div>
+            <div class="dep-field">
+              <label>Téléphone *</label>
+              <input type="tel" id="depClientPhone" placeholder="+33 6 12 34 56 78" autocomplete="tel">
+            </div>
+          </div>
+
+          <button class="dep-submit-btn" onclick="depSearchTechs()">🔍 Trouver un technicien disponible →</button>
+        </div>
+
+        <!-- Mini carte -->
+        <div class="dep-map-preview" id="depMapPreview" style="display:none;">
+          <iframe id="depMapFrame" src="" allowfullscreen loading="lazy"></iframe>
+          <div class="dep-map-badge" id="depMapBadge">📍 Localisation en cours...</div>
+        </div>
+
+        <!-- Estimation prix -->
+        <div class="dep-estimate-box" id="depEstimateBox" style="display:none;">
+          <div class="dep-est-item">
+            <div class="dep-est-label">Prix estimé</div>
+            <div class="dep-est-value" id="depEstPrice">—</div>
+            <div class="dep-est-sub">déplacement inclus</div>
+          </div>
+          <div class="dep-est-item">
+            <div class="dep-est-label">Délai d'intervention</div>
+            <div class="dep-est-value" id="depEstDelay">—</div>
+            <div class="dep-est-sub">selon urgence</div>
+          </div>
+          <div class="dep-est-item">
+            <div class="dep-est-label">Techniciens dispo</div>
+            <div class="dep-est-value" id="depEstTechs">—</div>
+            <div class="dep-est-sub">dans votre secteur</div>
+          </div>
+        </div>
+
+      </div><!-- /depStep1 -->
+
+      <!-- Étape 2 : Sélection technicien -->
+      <div id="depStep2" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          <button onclick="depGoStep(1)" style="background:none;border:1px solid var(--cream-dark);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:0.82rem;color:var(--text);">← Retour</button>
+          <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--navy);">Techniciens disponibles</div>
+        </div>
+        <div class="dep-tech-grid" id="depTechList"></div>
+        <button class="dep-submit-btn" onclick="depConfirmTech()">✅ Confirmer et contacter le technicien →</button>
+      </div>
+
+      <!-- Étape 3 : Contact + Suivi -->
+      <div id="depStep3" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          <button onclick="depGoStep(2)" style="background:none;border:1px solid var(--cream-dark);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:0.82rem;color:var(--text);">← Retour</button>
+          <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--navy);">Intervention confirmée</div>
+        </div>
+
+        <!-- Boutons appel -->
+        <button class="dep-call-btn" id="depCallBtn" onclick="depSimulateCall()">
+          📞 Appeler le technicien maintenant
+        </button>
+        <button class="dep-call-btn secondary" onclick="depGoStep(3,'chat')">
+          💬 Envoyer un message
+        </button>
+
+        <!-- Suivi intervention -->
+        <div class="dep-tracking" style="margin-top:18px;">
+          <div class="dep-section-title" style="margin-bottom:16px;">📍 Suivi en temps réel</div>
+          <div class="dep-track-steps" id="depTrackSteps"></div>
+        </div>
+
+        <!-- Chat technicien -->
+        <div class="dep-chat" id="depChatBox">
+          <div class="dep-chat-header">
+            <div class="dep-chat-avatar" id="depChatAvatar" style="background:#e74c3c;">T</div>
+            <div>
+              <div class="dep-chat-name" id="depChatTechName">Technicien</div>
+              <div class="dep-chat-status">● En ligne — répond en quelques minutes</div>
+            </div>
+            <div style="margin-left:auto;color:rgba(255,255,255,0.6);font-size:0.75rem;" id="depChatEta"></div>
+          </div>
+          <div class="dep-chat-body" id="depChatBody"></div>
+          <div class="dep-chat-input-row">
+            <input class="dep-chat-input" id="depChatInput" placeholder="Votre message..." onkeydown="if(event.key==='Enter')sendDepMsg()">
+            <button class="dep-chat-send" onclick="sendDepMsg()">➤</button>
+          </div>
+        </div>
+
+        <!-- Avis après intervention -->
+        <div class="dep-review-form" id="depReviewForm" style="margin-top:18px;display:none;">
+          <div class="dep-section-title">⭐ Évaluer l'intervention</div>
+          <div class="dep-star-row" id="depReviewStars">
+            <span class="dep-star" onclick="setDepStar(1)">★</span>
+            <span class="dep-star" onclick="setDepStar(2)">★</span>
+            <span class="dep-star" onclick="setDepStar(3)">★</span>
+            <span class="dep-star" onclick="setDepStar(4)">★</span>
+            <span class="dep-star" onclick="setDepStar(5)">★</span>
+          </div>
+          <div class="dep-field">
+            <label>Votre commentaire</label>
+            <textarea id="depReviewText" rows="2" placeholder="Décrivez la qualité de l'intervention..." style="resize:none;"></textarea>
+          </div>
+          <button class="dep-submit-btn" onclick="submitDepReview()">Publier mon avis</button>
+        </div>
+
+      </div><!-- /depStep3 -->
+
+    </div><!-- /dep-body -->
+  </div><!-- /dep-panel -->
+</div>
+
+<!-- ── ALERTS MODAL ── -->
+<div class="alert-overlay" id="alertsOverlay" onclick="if(event.target===this)closeAlerts()">
+  <div class="alert-panel">
+    <div class="alert-header">
+      <h2>🔔 Mes <span>Alertes</span></h2>
+      <button class="auth-close" onclick="closeAlerts()" style="position:static;">✕</button>
+    </div>
+    <div class="alert-body">
+
+      <!-- CREATE FORM -->
+      <div class="alert-form">
+        <div class="alert-form-title">➕ Créer une nouvelle alerte</div>
+        <div class="alert-form-grid">
+          <div class="form-field">
+            <label>Nom de l'alerte *</label>
+            <input type="text" id="alertName" placeholder="Ex: Appartement Paris ≤500k">
+          </div>
+          <div class="form-field">
+            <label>Transaction</label>
+            <select id="alertTransaction">
+              <option value="">Vente & Location</option>
+              <option value="vente">Vente uniquement</option>
+              <option value="location">Location uniquement</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Type de bien</label>
+            <select id="alertType">
+              <option value="">Tous types</option>
+              <option>Appartement</option>
+              <option>Maison</option>
+              <option>Villa</option>
+              <option>Studio</option>
+              <option>Local commercial</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Ville / Zone</label>
+            <input type="text" id="alertCity" placeholder="Paris, Lyon, Marseille...">
+          </div>
+          <div class="form-field">
+            <label>Budget maximum (€)</label>
+            <input type="number" id="alertBudget" placeholder="500000">
+          </div>
+          <div class="form-field">
+            <label>Surface minimum (m²)</label>
+            <input type="number" id="alertSurface" placeholder="50">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.76rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;display:block;">Fréquence des notifications</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;">
+              <input type="radio" name="alertFreq" value="instant" checked> Instantané
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;">
+              <input type="radio" name="alertFreq" value="daily"> Résumé quotidien
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;">
+              <input type="radio" name="alertFreq" value="weekly"> Résumé hebdomadaire
+            </label>
+          </div>
+        </div>
+        <button class="alert-create-btn" onclick="createAlert()">🔔 Créer l'alerte</button>
+      </div>
+
+      <!-- ALERTS LIST -->
+      <div id="alertsList"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- VISIT BOOKING MODAL -->
+<div class="auth-overlay" id="visitOverlay" style="z-index:3500;">
+  <div class="auth-box" style="max-width:520px;">
+    <div class="auth-header" style="text-align:left;padding:24px 28px 20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="auth-header-logo" style="font-size:1.2rem;">📅 Demande de visite</div>
+          <p id="visitPropTitle" style="color:rgba(255,255,255,0.75);font-size:0.85rem;margin-top:4px;"></p>
+        </div>
+        <button class="auth-close" onclick="closeVisitModal()">✕</button>
+      </div>
+      <!-- Steps indicator -->
+      <div style="display:flex;gap:0;margin-top:18px;" id="visitSteps">
+        <div class="vstep active" data-step="1">
+          <div class="vstep-num">1</div><div class="vstep-label">Créneau</div>
+        </div>
+        <div class="vstep-line"></div>
+        <div class="vstep" data-step="2">
+          <div class="vstep-num">2</div><div class="vstep-label">Paiement</div>
+        </div>
+        <div class="vstep-line"></div>
+        <div class="vstep" data-step="3">
+          <div class="vstep-num">3</div><div class="vstep-label">Confirmation</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1 : Date/Time -->
+    <div id="vstep1" class="vstep-panel active" style="padding:24px 28px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+        <div class="auth-field" style="margin:0;">
+          <label>Date de visite *</label>
+          <input type="date" id="visitDate" min="">
+        </div>
+        <div class="auth-field" style="margin:0;">
+          <label>Créneau horaire *</label>
+          <select id="visitTime">
+            <option value="">Choisir...</option>
+            <option>09:00 – 10:00</option>
+            <option>10:00 – 11:00</option>
+            <option>11:00 – 12:00</option>
+            <option>14:00 – 15:00</option>
+            <option>15:00 – 16:00</option>
+            <option>16:00 – 17:00</option>
+            <option>17:00 – 18:00</option>
+          </select>
+        </div>
+      </div>
+      <div class="auth-field">
+        <label>Votre nom complet *</label>
+        <input type="text" id="visitName" placeholder="Jean Dupont">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="auth-field" style="margin:0;">
+          <label>Téléphone *</label>
+          <input type="tel" id="visitPhone" placeholder="+33 6 12 34 56 78">
+        </div>
+        <div class="auth-field" style="margin:0;">
+          <label>Email *</label>
+          <input type="email" id="visitEmail" placeholder="vous@exemple.fr">
+        </div>
+      </div>
+      <div class="auth-field">
+        <label>Message (optionnel)</label>
+        <textarea id="visitMessage" placeholder="Questions particulières, accès, etc." style="min-height:70px;resize:none;border:1.5px solid var(--cream-dark);border-radius:8px;padding:10px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;width:100%;background:var(--cream);transition:all 0.3s;"></textarea>
+      </div>
+      <!-- Fee summary -->
+      <div id="visitFeeSummary" style="background:var(--cream);border:1px solid var(--cream-dark);border-radius:10px;padding:14px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-light);text-transform:uppercase;letter-spacing:0.7px;">Frais de visite</div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--navy);" id="visitFeeDisplay">—</div>
+          <div style="font-size:0.75rem;color:var(--text-light);margin-top:2px;" id="visitAgencyDisplay"></div>
+        </div>
+        <div style="font-size:2rem;">🏠</div>
+      </div>
+      <button class="auth-submit" style="margin-bottom:0;" onclick="goToPayment()">Continuer vers le paiement →</button>
+    </div>
+
+    <!-- STEP 2 : Payment -->
+    <div id="vstep2" class="vstep-panel" style="padding:24px 28px;display:none;">
+      <!-- Amount recap -->
+      <div style="background:linear-gradient(135deg,var(--navy),var(--navy-light));border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="color:rgba(255,255,255,0.6);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.7px;">Total à régler</div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;color:var(--gold);" id="payAmountDisplay">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="color:rgba(255,255,255,0.6);font-size:0.75rem;">Visite confirmée le</div>
+          <div style="color:var(--white);font-size:0.85rem;font-weight:600;" id="payDateDisplay">—</div>
+        </div>
+      </div>
+
+      <!-- Payment methods -->
+      <div style="font-size:0.78rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Choisir un moyen de paiement</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;" id="payMethodGrid">
+        <div class="pay-method active" data-method="card" onclick="selectPayMethod(this,'card')">
+          <div class="pay-method-icon">💳</div>
+          <div class="pay-method-label">Carte bancaire</div>
+        </div>
+        <div class="pay-method" data-method="applepay" onclick="selectPayMethod(this,'applepay')">
+          <div class="pay-method-icon"> / </div>
+          <div class="pay-method-label">Apple / Google Pay</div>
+        </div>
+        <div class="pay-method" data-method="virement" onclick="selectPayMethod(this,'virement')">
+          <div class="pay-method-icon">🏦</div>
+          <div class="pay-method-label">Virement instantané</div>
+        </div>
+        <div class="pay-method" data-method="paypal" onclick="selectPayMethod(this,'paypal')">
+          <div class="pay-method-icon">🅿️</div>
+          <div class="pay-method-label">PayPal</div>
+        </div>
+        <div class="pay-method" data-method="mobile" onclick="selectPayMethod(this,'mobile')" style="grid-column:1/-1;">
+          <div class="pay-method-icon">📱</div>
+          <div class="pay-method-label">Mobile Money (Orange / Wave / MTN)</div>
+        </div>
+      </div>
+
+      <!-- Stripe Card form -->
+      <div id="payFormCard" class="pay-form-panel">
+        <div class="stripe-form">
+          <div class="stripe-field">
+            <label>Numéro de carte</label>
+            <div class="stripe-element-wrap" id="stripeCardNumber">
+              <input class="stripe-input" type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)" style="border:none;padding:0;background:transparent;width:100%;">
+            </div>
+          </div>
+          <div class="stripe-row">
+            <div class="stripe-field">
+              <label>Date d'expiration</label>
+              <div class="stripe-element-wrap">
+                <input class="stripe-input" type="text" id="cardExpiry" placeholder="MM / AA" maxlength="7" oninput="formatExpiry(this)" style="border:none;padding:0;background:transparent;width:100%;">
+              </div>
+            </div>
+            <div class="stripe-field">
+              <label>Code CVV</label>
+              <div class="stripe-element-wrap">
+                <input class="stripe-input" type="text" id="cardCvv" placeholder="•••" maxlength="3" style="border:none;padding:0;background:transparent;width:100%;">
+              </div>
+            </div>
+          </div>
+          <div class="stripe-field">
+            <label>Nom sur la carte</label>
+            <input class="stripe-input" type="text" id="cardName" placeholder="JEAN DUPONT">
+          </div>
+          <div class="stripe-badge">
+            🔒 Paiement sécurisé SSL — Powered by <strong style="color:#635bff;margin-left:4px;">Stripe</strong>
+          </div>
+          <div class="stripe-brand-row">
+            <div class="stripe-brand">VISA</div>
+            <div class="stripe-brand">Mastercard</div>
+            <div class="stripe-brand">Amex</div>
+            <div class="stripe-brand">CB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Apple/Google Pay -->
+      <div id="payFormApplepay" class="pay-form-panel" style="display:none;">
+        <div style="text-align:center;padding:20px;background:var(--cream);border-radius:10px;border:1px solid var(--cream-dark);">
+          <div style="font-size:2.5rem;margin-bottom:10px;">📲</div>
+          <p style="font-size:0.9rem;color:var(--text);font-weight:500;">Appuyez sur le bouton ci-dessous pour payer avec votre appareil mobile</p>
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;">
+            <div style="background:#000;color:#fff;padding:10px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;"> Pay</div>
+            <div style="background:#fff;border:1px solid #ddd;padding:10px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;color:#4285F4;">G Pay</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Virement -->
+      <div id="payFormVirement" class="pay-form-panel" style="display:none;">
+        <div style="background:var(--cream);border-radius:10px;padding:16px;border:1px solid var(--cream-dark);">
+          <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.7px;">Coordonnées bancaires</div>
+          <div style="display:grid;gap:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem;"><span style="color:var(--text-light);">IBAN</span><span style="font-weight:600;font-family:monospace;">FR76 3000 1007 9412 3456 7890 185</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem;"><span style="color:var(--text-light);">BIC</span><span style="font-weight:600;font-family:monospace;">BNPAFRPPXXX</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem;"><span style="color:var(--text-light);">Référence</span><span style="font-weight:600;font-family:monospace;" id="virementRef">—</span></div>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;">⚠️ Indiquez la référence ci-dessus dans le motif du virement</p>
+        </div>
+      </div>
+
+      <!-- PayPal -->
+      <div id="payFormPaypal" class="pay-form-panel" style="display:none;">
+        <div style="text-align:center;padding:20px;background:#f0f4ff;border-radius:10px;border:1px solid #c8d8ff;">
+          <div style="font-size:2rem;margin-bottom:8px;">🅿️</div>
+          <div style="font-size:0.88rem;color:#1a1a5e;font-weight:600;margin-bottom:4px;">Payer avec PayPal</div>
+          <div style="font-size:0.8rem;color:#6b7c93;margin-bottom:14px;">Vous serez redirigé vers PayPal pour finaliser</div>
+          <div style="background:#0070ba;color:#fff;padding:12px 24px;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;display:inline-block;">PayPal</div>
+        </div>
+      </div>
+
+      <!-- Mobile Money -->
+      <div id="payFormMobile" class="pay-form-panel" style="display:none;">
+        <div style="display:grid;gap:10px;">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:4px;">Sélectionner l'opérateur</div>
+          <div style="display:flex;gap:10px;margin-bottom:12px;">
+            <div class="mobile-op active" data-op="orange" onclick="selectOperator(this,'orange')" style="background:#ff6600;color:#fff;">
+              📱 Orange Money
+            </div>
+            <div class="mobile-op" data-op="wave" onclick="selectOperator(this,'wave')" style="background:#1a91cf;color:#fff;">
+              🌊 Wave
+            </div>
+            <div class="mobile-op" data-op="mtn" onclick="selectOperator(this,'mtn')" style="background:#ffcb00;color:#1a1a1a;">
+              📳 MTN Money
+            </div>
+          </div>
+          <div class="auth-field" style="margin:0;">
+            <label>Numéro Mobile Money *</label>
+            <input type="tel" id="mobileNumber" placeholder="+221 77 000 00 00">
+          </div>
+          <div style="background:var(--cream);border-radius:8px;padding:12px;border:1px solid var(--cream-dark);font-size:0.82rem;color:var(--text-light);">
+            📲 Un code de confirmation sera envoyé par SMS au numéro indiqué pour valider le paiement.
+          </div>
+        </div>
+      </div>
+
+      <!-- Security badge -->
+      <div style="display:flex;align-items:center;gap:8px;margin:16px 0 20px;padding:10px 14px;background:#f0fff4;border-radius:8px;border:1px solid #b7ebc9;">
+        <span style="font-size:1rem;">🔒</span>
+        <span style="font-size:0.78rem;color:#2e7d32;">Paiement sécurisé SSL — vos données sont chiffrées et protégées</span>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="form-cancel" onclick="goToStep(1)">← Retour</button>
+        <button class="auth-submit" style="margin:0;flex:1;" onclick="processPayment()">🔒 Payer <span id="payBtnAmount"></span></button>
+      </div>
+    </div>
+
+    <!-- STEP 3 : Confirmation -->
+    <div id="vstep3" class="vstep-panel" style="padding:32px 28px;display:none;text-align:center;">
+      <div style="width:72px;height:72px;background:#f0fff4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;border:3px solid #2e7d32;">✅</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--navy);margin-bottom:8px;">Visite confirmée !</div>
+      <p style="color:var(--text-light);font-size:0.88rem;margin-bottom:24px;">Votre paiement a été traité avec succès. Voici le récapitulatif de votre visite.</p>
+
+      <!-- Confirmation card -->
+      <div style="background:var(--cream);border-radius:14px;padding:20px;text-align:left;border:1px solid var(--cream-dark);margin-bottom:24px;" id="confirmationCard">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--cream-dark);">
+          <div style="font-size:1.8rem;">🏠</div>
+          <div>
+            <div style="font-weight:700;color:var(--navy);font-size:0.95rem;" id="confPropTitle">—</div>
+            <div style="font-size:0.8rem;color:var(--text-light);" id="confPropCity">—</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="conf-item">
+            <div class="conf-label">📅 Date</div>
+            <div class="conf-val" id="confDate">—</div>
+          </div>
+          <div class="conf-item">
+            <div class="conf-label">⏰ Créneau</div>
+            <div class="conf-val" id="confTime">—</div>
+          </div>
+          <div class="conf-item">
+            <div class="conf-label">👤 Visiteur</div>
+            <div class="conf-val" id="confName">—</div>
+          </div>
+          <div class="conf-item">
+            <div class="conf-label">💳 Montant payé</div>
+            <div class="conf-val" id="confAmount" style="color:var(--navy);font-weight:700;">—</div>
+          </div>
+          <div class="conf-item" style="grid-column:1/-1;">
+            <div class="conf-label">🏢 Agence</div>
+            <div class="conf-val" id="confAgency">—</div>
+          </div>
+          <div class="conf-item" style="grid-column:1/-1;">
+            <div class="conf-label">🔖 Référence de réservation</div>
+            <div class="conf-val" id="confRef" style="font-family:monospace;color:var(--gold);font-size:0.95rem;font-weight:700;">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:12px 16px;font-size:0.82rem;color:#8a6300;margin-bottom:20px;text-align:left;">
+        📧 Un email de confirmation a été envoyé à <strong id="confEmail">votre adresse</strong>. L'agence vous contactera 24h avant la visite.
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="form-cancel" style="flex:1;" onclick="closeVisitModal();showToast('✅ Visite confirmée ! Bonne chance 🏠')">Fermer</button>
+        <button class="auth-submit" style="margin:0;flex:1;" onclick="printConfirmation()">🖨️ Imprimer / Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /moduleImmo -->
+
+
+
+<div class="artisan-overlay" id="artisanRegOverlay" onclick="if(event.target===this)closeArtisanReg()">
+  <div class="artisan-panel" id="artisanRegPanel">
+    <div class="artisan-header">
+      <div class="artisan-header-top">
+        <div>
+          <div class="artisan-header-title">👷 Devenir artisan partenaire</div>
+          <div class="artisan-header-sub">Rejoignez notre réseau — Accès aux demandes en urgence 24h/24</div>
+        </div>
+        <button class="auth-close" onclick="closeArtisanReg()" style="position:static;background:rgba(255,255,255,.2);">✕</button>
+      </div>
+      <div class="artisan-stepper" id="artisanStepper">
+        <div class="artisan-step active" id="astep1"><div class="artisan-step-num">1</div><div class="artisan-step-label">Identité</div></div>
+        <div class="artisan-step"       id="astep2"><div class="artisan-step-num">2</div><div class="artisan-step-label">Métier</div></div>
+        <div class="artisan-step"       id="astep3"><div class="artisan-step-num">3</div><div class="artisan-step-label">Zone & Tarifs</div></div>
+        <div class="artisan-step"       id="astep4"><div class="artisan-step-num">4</div><div class="artisan-step-label">Documents</div></div>
+      </div>
+    </div>
+    <div class="artisan-body">
+
+      <!-- ÉTAPE 1 — Identité -->
+      <div id="artisanStep1">
+        <div class="artisan-section">
+          <div class="artisan-section-title">👤 Informations personnelles</div>
+          <div style="display:flex;gap:18px;align-items:flex-start;margin-bottom:16px;">
+            <div class="photo-profil-zone" id="artisanPhotoZone" onclick="document.getElementById('artisanPhotoInput').click()">
+              <img id="artisanPhotoPreview" src="" alt="" style="display:none;">
+              <span class="photo-profil-placeholder" id="artisanPhotoPlaceholder">📷</span>
+              <input type="file" id="artisanPhotoInput" accept="image/*" onchange="previewArtisanPhoto(this)" style="display:none;">
+            </div>
+            <div style="flex:1;">
+              <div class="artisan-grid">
+                <div class="artisan-field"><label>Prénom *</label><input type="text" id="aRegFirstName" placeholder="Jean" autocomplete="given-name"></div>
+                <div class="artisan-field"><label>Nom *</label><input type="text" id="aRegLastName" placeholder="Dupont" autocomplete="family-name"></div>
+              </div>
+            </div>
+          </div>
+          <div class="artisan-grid">
+            <div class="artisan-field"><label>Email *</label><input type="email" id="aRegEmail" placeholder="jean@artisan.fr" autocomplete="email"></div>
+            <div class="artisan-field"><label>Téléphone *</label><input type="tel" id="aRegPhone" placeholder="+33 6 12 34 56 78" autocomplete="tel"></div>
+            <div class="artisan-field"><label>Mot de passe *</label><input type="password" id="aRegPassword" placeholder="8 caractères min." autocomplete="new-password"></div>
+            <div class="artisan-field"><label>Numéro SIRET *</label><input type="text" id="aRegSiret" placeholder="12345678901234" maxlength="14"></div>
+            <div class="artisan-field" style="grid-column:1/-1"><label>Nom de l'entreprise *</label><input type="text" id="aRegCompany" placeholder="Jean Dupont Plomberie SARL"></div>
+          </div>
+        </div>
+        <div class="artisan-nav-row">
+          <button class="artisan-btn-next" onclick="artisanNextStep(2)">Étape suivante : Métier & Certifications →</button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 2 — Métier & Certifications -->
+      <div id="artisanStep2" style="display:none;">
+        <div class="artisan-section">
+          <div class="artisan-section-title">🔧 Spécialités</div>
+          <div class="spec-grid" id="artisanSpecGrid">
+            <div class="spec-pill" onclick="toggleSpec(this,'plomberie')"><div class="spec-pill-icon">🚿</div><div class="spec-pill-label">Plomberie</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'electricite')"><div class="spec-pill-icon">⚡</div><div class="spec-pill-label">Électricité</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'serrurerie')"><div class="spec-pill-icon">🔑</div><div class="spec-pill-label">Serrurerie</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'chauffage')"><div class="spec-pill-icon">🔥</div><div class="spec-pill-label">Chauffage</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'toiture')"><div class="spec-pill-icon">🏠</div><div class="spec-pill-label">Toiture</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'vitrerie')"><div class="spec-pill-icon">🪟</div><div class="spec-pill-label">Vitrerie</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'climatisation')"><div class="spec-pill-icon">❄️</div><div class="spec-pill-label">Climatisation</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'peinture')"><div class="spec-pill-icon">🎨</div><div class="spec-pill-label">Peinture</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'menuiserie')"><div class="spec-pill-icon">🪵</div><div class="spec-pill-label">Menuiserie</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'carrelage')"><div class="spec-pill-icon">🔲</div><div class="spec-pill-label">Carrelage</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'jardinage')"><div class="spec-pill-icon">🌿</div><div class="spec-pill-label">Jardinage</div></div>
+            <div class="spec-pill" onclick="toggleSpec(this,'demenagement')"><div class="spec-pill-icon">📦</div><div class="spec-pill-label">Déménagement</div></div>
+          </div>
+        </div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">🏅 Certifications & labels</div>
+          <div class="certif-grid" id="artisanCertifGrid">
+            <div class="certif-pill" onclick="toggleCertif(this,'RGE')">RGE</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'QUALIFELEC')">QUALIFELEC</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'QUALIBAT')">QUALIBAT</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'QualiPAC')">QualiPAC</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'Handibat')">Handibat</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'ECO Artisan')">ECO Artisan</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'Pro de la Performance Energétique')">Pro Perf. Énerg.</div>
+            <div class="certif-pill" onclick="toggleCertif(this,'Artisan de qualité')">Artisan de qualité</div>
+          </div>
+        </div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">⏱️ Années d'expérience</div>
+          <div class="artisan-grid">
+            <div class="artisan-field">
+              <label>Expérience *</label>
+              <select id="aRegExperience">
+                <option value="">Sélectionner...</option>
+                <option value="1-2 ans">1 à 2 ans</option>
+                <option value="3-5 ans">3 à 5 ans</option>
+                <option value="5-10 ans">5 à 10 ans</option>
+                <option value="+10 ans">Plus de 10 ans</option>
+              </select>
+            </div>
+            <div class="artisan-field">
+              <label>Statut juridique *</label>
+              <select id="aRegStatut">
+                <option value="">Sélectionner...</option>
+                <option value="Auto-entrepreneur">Auto-entrepreneur</option>
+                <option value="SARL">SARL</option>
+                <option value="SAS">SAS</option>
+                <option value="EI">Entreprise individuelle</option>
+                <option value="EURL">EURL</option>
+              </select>
+            </div>
+            <div class="artisan-field" style="grid-column:1/-1">
+              <label>Présentation (visible sur votre profil)</label>
+              <textarea id="aRegBio" rows="3" placeholder="Décrivez votre expérience, votre façon de travailler, ce qui vous différencie..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="artisan-nav-row">
+          <button class="artisan-btn-back" onclick="artisanGoStep(1)">← Retour</button>
+          <button class="artisan-btn-next" onclick="artisanNextStep(3)">Étape suivante : Zone & Tarifs →</button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 3 — Zone & Tarifs & Disponibilités -->
+      <div id="artisanStep3" style="display:none;">
+        <div class="artisan-section">
+          <div class="artisan-section-title">📍 Zone d'intervention</div>
+          <div class="artisan-grid">
+            <div class="artisan-field">
+              <label>Ville principale *</label>
+              <input type="text" id="aRegCity" placeholder="Paris, Lyon, Marseille..." autocomplete="address-level2">
+            </div>
+            <div class="artisan-field">
+              <label>Rayon d'intervention *</label>
+              <select id="aRegRadius">
+                <option value="10">10 km</option>
+                <option value="20" selected>20 km</option>
+                <option value="30">30 km</option>
+                <option value="50">50 km</option>
+                <option value="100">100 km</option>
+              </select>
+            </div>
+            <div class="artisan-field" style="grid-column:1/-1">
+              <label>Villes supplémentaires (séparées par des virgules)</label>
+              <input type="text" id="aRegCities" placeholder="Ex: Versailles, Boulogne, Saint-Cloud">
+            </div>
+          </div>
+        </div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">💶 Tarifs</div>
+          <div class="artisan-grid">
+            <div class="artisan-field">
+              <label>Tarif horaire min. (€/h) *</label>
+              <input type="number" id="aRegRateMin" placeholder="60" min="20" max="500">
+            </div>
+            <div class="artisan-field">
+              <label>Tarif horaire max. (€/h) *</label>
+              <input type="number" id="aRegRateMax" placeholder="120" min="20" max="500">
+            </div>
+            <div class="artisan-field">
+              <label>Frais de déplacement (€)</label>
+              <input type="number" id="aRegDepl" placeholder="25" min="0">
+            </div>
+            <div class="artisan-field">
+              <label>Délai d'intervention minimum</label>
+              <select id="aRegDelay">
+                <option value="30 min">30 min (urgence)</option>
+                <option value="1h" selected>1h</option>
+                <option value="2h">2h</option>
+                <option value="demi-journée">Demi-journée</option>
+                <option value="journée">Journée entière</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">📅 Disponibilités habituelles</div>
+          <div class="dispo-grid" id="artisanDispoGrid">
+            <div class="dispo-day" onclick="toggleDispoDay(this,'lun')"><div class="dispo-day-name">Lun</div><div class="dispo-day-check">○</div></div>
+            <div class="dispo-day active" onclick="toggleDispoDay(this,'mar')"><div class="dispo-day-name">Mar</div><div class="dispo-day-check">✓</div></div>
+            <div class="dispo-day active" onclick="toggleDispoDay(this,'mer')"><div class="dispo-day-name">Mer</div><div class="dispo-day-check">✓</div></div>
+            <div class="dispo-day active" onclick="toggleDispoDay(this,'jeu')"><div class="dispo-day-name">Jeu</div><div class="dispo-day-check">✓</div></div>
+            <div class="dispo-day active" onclick="toggleDispoDay(this,'ven')"><div class="dispo-day-name">Ven</div><div class="dispo-day-check">✓</div></div>
+            <div class="dispo-day" onclick="toggleDispoDay(this,'sam')"><div class="dispo-day-name">Sam</div><div class="dispo-day-check">○</div></div>
+            <div class="dispo-day" onclick="toggleDispoDay(this,'dim')"><div class="dispo-day-name">Dim</div><div class="dispo-day-check">○</div></div>
+          </div>
+          <div class="artisan-grid">
+            <div class="artisan-field">
+              <label>Heure début</label>
+              <input type="time" id="aRegTimeStart" value="08:00">
+            </div>
+            <div class="artisan-field">
+              <label>Heure fin</label>
+              <input type="time" id="aRegTimeEnd" value="18:00">
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text);">
+            <input type="checkbox" id="aRegUrgence" style="width:18px;height:18px;accent-color:#f39c12;">
+            <span>Disponible pour les interventions d'urgence (nuit / week-end)</span>
+          </label>
+        </div>
+        <div class="artisan-nav-row">
+          <button class="artisan-btn-back" onclick="artisanGoStep(2)">← Retour</button>
+          <button class="artisan-btn-next" onclick="artisanNextStep(4)">Étape suivante : Documents →</button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 4 — Documents -->
+      <div id="artisanStep4" style="display:none;">
+        <div class="artisan-section">
+          <div class="artisan-section-title">📎 Pièces justificatives</div>
+          <p style="font-size:.84rem;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+            Ces documents sont requis pour la validation de votre compte par notre équipe. Formats acceptés : PDF, JPG, PNG (max 5 Mo).
+          </p>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:.76rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">KBIS ou justificatif d'immatriculation *</label>
+            <div class="doc-upload-zone" id="docZoneKbis" onclick="triggerDocUpload('docKbis','docZoneKbis')">
+              <input type="file" id="docKbis" accept=".pdf,.jpg,.jpeg,.png" onchange="handleDocUpload(this,'docZoneKbis','kbis')">
+              <div style="font-size:1.6rem;margin-bottom:6px;">📄</div>
+              <div style="font-size:.85rem;font-weight:600;color:var(--text);">Cliquez ou glissez votre KBIS</div>
+              <div style="font-size:.75rem;color:var(--text-light);margin-top:4px;">PDF, JPG ou PNG — max 5 Mo</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:.76rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Attestation d'assurance décennale *</label>
+            <div class="doc-upload-zone" id="docZoneAssurance" onclick="triggerDocUpload('docAssurance','docZoneAssurance')">
+              <input type="file" id="docAssurance" accept=".pdf,.jpg,.jpeg,.png" onchange="handleDocUpload(this,'docZoneAssurance','assurance')">
+              <div style="font-size:1.6rem;margin-bottom:6px;">🛡️</div>
+              <div style="font-size:.85rem;font-weight:600;color:var(--text);">Cliquez ou glissez votre attestation d'assurance</div>
+              <div style="font-size:.75rem;color:var(--text-light);margin-top:4px;">PDF, JPG ou PNG — max 5 Mo</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:.76rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Pièce d'identité (recto-verso)</label>
+            <div class="doc-upload-zone" id="docZoneId" onclick="triggerDocUpload('docId','docZoneId')">
+              <input type="file" id="docId" accept=".pdf,.jpg,.jpeg,.png" onchange="handleDocUpload(this,'docZoneId','identite')">
+              <div style="font-size:1.6rem;margin-bottom:6px;">🪪</div>
+              <div style="font-size:.85rem;font-weight:600;color:var(--text);">Cliquez ou glissez votre pièce d'identité</div>
+              <div style="font-size:.75rem;color:var(--text-light);margin-top:4px;">PDF, JPG ou PNG — max 5 Mo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="artisan-section" style="background:#fef9e7;border-color:#f39c12;">
+          <div style="font-size:.85rem;color:var(--text);line-height:1.7;">
+            <strong>⚠️ Validation sous 24–48h ouvrées.</strong><br>
+            Notre équipe examinera votre dossier et vous contactera par email. Une fois validé, votre profil sera visible et vous recevrez les demandes clients dans votre zone.
+            <br><br>
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+              <input type="checkbox" id="aRegCGV" style="width:18px;height:18px;margin-top:2px;accent-color:#f39c12;">
+              <span>J'accepte les <a href="#" style="color:#e67e22;text-decoration:underline;" onclick="return false;">Conditions Générales d'Utilisation</a> et la <a href="#" style="color:#e67e22;text-decoration:underline;" onclick="return false;">Politique de confidentialité</a>.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="artisan-nav-row">
+          <button class="artisan-btn-back" onclick="artisanGoStep(3)">← Retour</button>
+          <button class="artisan-btn-next" onclick="submitArtisanReg()">✅ Soumettre ma candidature</button>
+        </div>
+      </div>
+
+      <!-- SUCCÈS -->
+      <div id="artisanStepSuccess" style="display:none;text-align:center;padding:40px 20px;">
+        <div style="font-size:4rem;margin-bottom:16px;">🎉</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--navy);margin-bottom:10px;">Candidature envoyée !</div>
+        <div style="font-size:.9rem;color:var(--text-light);line-height:1.7;max-width:400px;margin:0 auto 24px;">
+          Votre dossier a bien été reçu. Notre équipe l'examinera sous <strong>24–48h</strong> et vous contactera par email à l'adresse indiquée.
+        </div>
+        <button class="artisan-btn-next" style="max-width:280px;margin:0 auto;" onclick="closeArtisanReg()">Fermer</button>
+      </div>
+
+    </div><!-- /artisan-body -->
+  </div><!-- /artisan-panel -->
+</div><!-- /artisanRegOverlay -->
+
+
+<!-- DASHBOARD ARTISAN -->
+<div class="artisan-overlay" id="artisanDashOverlay" onclick="if(event.target===this)closeArtisanDash()">
+  <div class="artisan-panel" id="artisanDashPanel">
+    <div class="artisan-header" id="artisanDashHeader">
+      <div class="artisan-header-top">
+        <div>
+          <div class="artisan-header-title" id="artisanDashTitle">👷 Espace Artisan</div>
+          <div class="artisan-header-sub" id="artisanDashSub">Bienvenue sur votre tableau de bord</div>
+          <div class="artisan-status-badge pending" id="artisanStatusBadge">⏳ En attente de validation</div>
+        </div>
+        <button class="auth-close" onclick="closeArtisanDash()" style="position:static;background:rgba(255,255,255,.2);">✕</button>
+      </div>
+      <!-- Onglets dashboard -->
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="dep-cat active" id="adTab_demandes" onclick="switchArtisanTab('demandes',this)" style="flex:1;padding:8px 6px;font-size:.75rem;">📋 Demandes</button>
+        <button class="dep-cat" id="adTab_dispo"    onclick="switchArtisanTab('dispo',this)"    style="flex:1;padding:8px 6px;font-size:.75rem;">📅 Disponibilités</button>
+        <button class="dep-cat" id="adTab_profil"   onclick="switchArtisanTab('profil',this)"   style="flex:1;padding:8px 6px;font-size:.75rem;">🌐 Mon profil</button>
+        <button class="dep-cat" id="adTab_stats"    onclick="switchArtisanTab('stats',this)"    style="flex:1;padding:8px 6px;font-size:.75rem;">📊 Stats</button>
+      </div>
+    </div>
+    <div class="artisan-body">
+
+      <!-- Bannière en attente -->
+      <div class="artisan-pending-banner" id="artisanPendingBanner">
+        <div style="font-size:1.8rem;">⏳</div>
+        <div>
+          <div style="font-weight:700;font-size:.95rem;">Votre dossier est en cours d'examen</div>
+          <div style="font-size:.8rem;opacity:.85;margin-top:4px;">Vous recevrez un email dès validation. Les fonctionnalités seront débloquées ensuite.</div>
+        </div>
+      </div>
+
+      <!-- TAB DEMANDES -->
+      <div id="adContent_demandes">
+        <div id="artisanRequestList"></div>
+      </div>
+
+      <!-- TAB DISPONIBILITÉS -->
+      <div id="adContent_dispo" style="display:none;">
+        <div class="artisan-section">
+          <div class="artisan-section-title">📅 Gérer mes disponibilités</div>
+          <div id="artisanDispoToggles"></div>
+        </div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">⚡ Statut urgence</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <div>
+              <div style="font-weight:700;font-size:.92rem;color:var(--navy);">Disponible pour interventions urgentes</div>
+              <div style="font-size:.8rem;color:var(--text-light);margin-top:4px;">Activez pour recevoir les demandes urgentes (nuit, week-end)</div>
+            </div>
+            <label class="dispo-switch">
+              <input type="checkbox" id="artisanUrgenceToggle" onchange="toggleArtisanUrgence(this)">
+              <span class="dispo-switch-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB PROFIL PUBLIC -->
+      <div id="adContent_profil" style="display:none;">
+        <div id="artisanProfilPreview"></div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">✏️ Modifier ma présentation</div>
+          <div class="artisan-field" style="margin-bottom:12px;">
+            <label>Bio publique</label>
+            <textarea id="artisanBioEdit" rows="4" style="resize:none;" placeholder="Décrivez votre expertise..."></textarea>
+          </div>
+          <button class="artisan-btn-next" onclick="saveArtisanBio()">💾 Sauvegarder</button>
+        </div>
+      </div>
+
+      <!-- TAB STATISTIQUES -->
+      <div id="adContent_stats" style="display:none;">
+        <div class="artisan-kpi-row" id="artisanKpiRow"></div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">⭐ Derniers avis clients</div>
+          <div id="artisanReviewsList"></div>
+        </div>
+        <div class="artisan-section">
+          <div class="artisan-section-title">📈 Activité des 7 derniers jours</div>
+          <div id="artisanActivityChart" style="display:flex;align-items:flex-end;gap:8px;height:80px;padding:8px 0;"></div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+  </div>
+</div>
+
+<!-- PANEL ADMIN -->
+<div class="artisan-overlay" id="adminOverlay" onclick="if(event.target===this)closeAdminPanel()">
+  <div class="artisan-panel" id="adminPanel">
+    <div class="artisan-header" style="background:linear-gradient(135deg,#6c3483,#8e44ad);">
+      <div class="artisan-header-top">
+        <div>
+          <div class="artisan-header-title">🔑 Panel Admin — Artisans</div>
+          <div class="artisan-header-sub">Validation et gestion des comptes artisans</div>
+        </div>
+        <button class="auth-close" onclick="closeAdminPanel()" style="position:static;background:rgba(255,255,255,.2);">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="dep-cat active" id="adminTab_pending"   onclick="switchAdminTab('pending',this)"   style="flex:1;padding:8px 6px;font-size:.75rem;">⏳ En attente</button>
+        <button class="dep-cat"        id="adminTab_approved"  onclick="switchAdminTab('approved',this)"  style="flex:1;padding:8px 6px;font-size:.75rem;">✅ Validés</button>
+        <button class="dep-cat"        id="adminTab_rejected"  onclick="switchAdminTab('rejected',this)"  style="flex:1;padding:8px 6px;font-size:.75rem;">❌ Refusés</button>
+      </div>
+    </div>
+    <div class="artisan-body">
+      <div id="adminContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+
+</body>
+  <script src="js/shared.js"></script>
+  <script src="js/entretien.js"></script>
+  <script src="js/artisans.js"></script>
+  <script>
+  
+window.addEventListener('load', () => {
+  applyDark(); applyLangOnLoad(); initStripe();
+  initArtisanData(); updateNavForUser();
+  renderEntretienCards();
+});
+function showModule(mod){
+  if(mod==='home') window.location.href='index.html';
+  else if(mod==='immo') window.location.href='immobilier.html';
+  else if(mod==='dep') window.location.href='depannage.html';
+}
+
+  </script>
+</html>
